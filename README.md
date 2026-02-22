@@ -2,13 +2,6 @@
 
 ddddocr 的 Rust 实现，基于 ONNX Runtime 进行验证码识别。
 
-## 原理
-
-- 加载 ddddocr 的 `common_old.onnx` 模型
-- 图像预处理：缩放到高度 64px、转灰度、归一化到 [0, 1]
-- ONNX 推理 + CTC 解码（argmax + 去重）
-- 字符集（8210 个字符）在编译时嵌入二进制，运行时无需额外文件
-
 ### ONNX Runtime
 
 运行时需要 ONNX Runtime 动态库和模型文件。

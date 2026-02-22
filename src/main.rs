@@ -180,12 +180,7 @@ fn main() {
                 return beside_exe;
             }
         }
-        // cargo run fallback
-        let manifest = Path::new(env!("CARGO_MANIFEST_DIR")).join("common_old.onnx");
-        if manifest.exists() {
-            return manifest;
-        }
-        local // will fail below with clear error
+        local
     });
 
     if !model_path.exists() {

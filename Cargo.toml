@@ -1,0 +1,10 @@
+[package]
+name = "captcha-ocr"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ort = { version = "2.0.0-rc.11", features = ["load-dynamic", "ndarray"] }
+image = "0.25"
+ndarray = "0.17"
+serde_json = "1"

@@ -92,21 +92,6 @@ ONNX Runtime 已**静态链接**到可执行文件中，编译产物为独立 ex
 - BMP
 - GIF
 
-## 项目结构
-
-```
-rust_version/
-├── Cargo.toml                  # 项目配置（Rust 2021 Edition）
-├── src/
-│   ├── main.rs                 # CLI 参数解析、推理流程
-│   └── charset.rs              # 字符集加载和管理
-├── charset.json                # 旧字符集（common_old.onnx 配套）
-├── charset3.json               # 新字符集（common.onnx 配套）
-├── common_old.onnx             # 旧 ONNX 模型文件
-├── common.onnx                 # 新 ONNX 模型文件
-└── README.md                   # 本文件
-```
-
 ## 其他
 
 - 首次编译需要下载 ONNX Runtime 静态库

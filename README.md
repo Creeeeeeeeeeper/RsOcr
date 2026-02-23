@@ -1,87 +1,115 @@
 # RsOcr
 
-ddddocr 的 Rust 实现，基于 ONNX Runtime 进行验证码识别。
+ddddocr 的 Rust 实现，基于 ONNX Runtime 进行验证码识别。支持多个 ONNX 模型和字符集，可识别简单文本验证码。
 
-### ONNX Runtime
+## 编译和运行
 
-运行时需要 ONNX Runtime 动态库和模型文件。
-
-| 平台 | 库文件 | 获取方式 |
-|------|--------|---------|
-| Windows | `onnxruntime.dll`, `onnxruntime_providers_shared.dll` | 从 Python 的 `onnxruntime` 包中复制，或从 [GitHub Releases](https://github.com/microsoft/onnxruntime/releases) 下载 |
-| Linux | `libonnxruntime.so` | 同上，或 `apt install libonnxruntime-dev` |
-
-将动态库放在以下任一位置：
-- 可执行文件同目录
-- 系统库路径（Linux: `LD_LIBRARY_PATH`，Windows: `PATH`）
-
-### 模型文件
-
-将 `common_old.onnx` 放在当前工作目录或可执行文件同目录，也可通过 `-m` 参数指定路径。
-
-## 用法
-
-```
-captcha-ocr [OPTIONS]
-```
-
-### 参数
-
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `-i <path>` | 识别单张图片 | - |
-| `-d <path>` | 识别目录下所有图片 | - |
-| `-m <path>` | 指定 ONNX 模型路径 | `./common_old.onnx` |
-| `-h` | 显示帮助 | - |
-
-不指定 `-i` 或 `-d` 时，默认扫描当前目录下的所有图片。
-
-### 示例
+### 编译
 
 ```bash
-# 识别单张图片
-captcha-ocr -i captcha.jpg
-
-# 识别目录下所有图片
-captcha-ocr -d ./images/
-
-# 指定模型路径
-captcha-ocr -m /path/to/common_old.onnx -d ./images/
-
-# 不加参数，识别当前目录下所有图片
-captcha-ocr
+cargo build --release
 ```
 
-### 输出
+ONNX Runtime 已**静态链接**到可执行文件中，编译产物为独立 exe，无需额外的动态库文件。首次编译会从网络下载 ONNX Runtime 静态库（需网络连接）。
 
-有时可能识别不准确，如下：
+### 运行
 
-![00aab55810b3e0827b101876957df5bf](./README/00aab55810b3e0827b101876957df5bf.jpg) ![00afce3506303922d506ddfbc52ee9d4](./README/00afce3506303922d506ddfbc52ee9d4.jpg) ![00e78300cff5a79b6592e2abcb0b4b8b](./README/00e78300cff5a79b6592e2abcb0b4b8b.jpg)
-
-```
-00aab55810b3e0827b101876957df5bf.jpg -> 9yKL
-00afce3506303922d506ddfbc52ee9d4.jpg -> nVwa
-00e78300cff5a79b6592e2abcb0b4b8b.jpg -> 45w
-
-共识别 3 张验证码
+```bash
+./target/release/captcha-ocr [OPTIONS]
 ```
 
-仅能识别这种简单的验证码
+## 参数说明
+
+| 参数 | 说明 | 默认值 |
+|------|:----:|:------:|
+| `-m <path>` | ONNX 模型路径 | `./common.onnx` |
+| `-c <path>` | 字符集文件路径 | 内置 charset3.json |
+| `-i <path>` | 识别单张图片 | - |
+| `-d <path>` | 识别目录下所有图片 | - |
+| `-f` | 显示文件名（格式：filename -> result） | 不显示文件名 |
+| `-h` | 显示帮助信息 | - |
+
+**说明**：不指定 `-i` 或 `-d` 时，默认扫描当前目录下的所有图片。
+
+## 支持的模型和字符集
+
+### 推荐配置（新模型）
+
+```bash
+./target/release/captcha-ocr -m common.onnx -i image.jpg
+```
+
+- **模型**：`common.onnx`（更新更强）
+- **字符集**：`charset3.json`（默认，无需指定）
+- **识别精度**：更高，可处理粘连字符（如 45WJ）
+
+### 传统配置（旧模型）
+
+```bash
+./target/release/captcha-ocr -m common_old.onnx -c charset.json -i image.jpg
+```
+
+- **模型**：`common_old.onnx`（轻量级）
+- **字符集**：`charset.json`（旧字符集）
+- **识别精度**：较低，不可处理粘连字符（识别为 45w）
+
+## 使用示例
+
+```bash
+# 推荐：识别单张图片（默认使用新模型 common.onnx 和 charset3.json<已内置> ）
+./target/release/captcha-ocr -i image.jpg
+
+# 推荐：识别目录，显示文件名
+./target/release/captcha-ocr -f -d ./images/
+
+# 传统：使用旧模型识别，指定旧字符集
+./target/release/captcha-ocr -m common_old.onnx -c charset.json -i image.jpg
+
+# 扫描当前目录（默认使用新模型）
+./target/release/captcha-ocr
+```
+
+## 识别效果对比
+
+### 新模型 (common.onnx + charset3.json<已内置>)
+
+| 图片 | 识别结果 |
+|:----:|:-------:|
+| ![45WJ](./README/00e78300cff5a79b6592e2abcb0b4b8b.jpg) | **45WJ** ✓ |
+| ![9yKL](./README/00aab55810b3e0827b101876957df5bf.jpg) | **9yKL** ✓ |
+
+### 旧模型 (common_old.onnx + charset.json)
+
+| 图片 | 识别结果 |
+|:----:|:-------:|
+| ![45WJ](./README/00e78300cff5a79b6592e2abcb0b4b8b.jpg) | **45w** （缺 J） |
+| ![9yKL](./README/00aab55810b3e0827b101876957df5bf.jpg) | **9yKL** |
 
 ## 支持的图片格式
 
-jpg / jpeg / png / bmp / gif
+- JPEG / JPG
+- PNG
+- BMP
+- GIF
 
 ## 项目结构
 
 ```
 rust_version/
-├── Cargo.toml
-├── common_old.onnx          # ONNX 模型（需自行放置）
-├── charset.json              # 字符集数据（编译时嵌入）
-├── README.md
-└── src/
-    ├── charset.rs            # 字符集加载
-    └── main.rs               # 预处理、推理、CTC 解码、CLI
+├── Cargo.toml                  # 项目配置（Rust 2021 Edition）
+├── src/
+│   ├── main.rs                 # CLI 参数解析、推理流程
+│   └── charset.rs              # 字符集加载和管理
+├── charset.json                # 旧字符集（common_old.onnx 配套）
+├── charset3.json               # 新字符集（common.onnx 配套）
+├── common_old.onnx             # 旧 ONNX 模型文件
+├── common.onnx                 # 新 ONNX 模型文件
+└── README.md                   # 本文件
 ```
+
+## 其他
+
+- 首次编译需要下载 ONNX Runtime 静态库
+- 生成的 exe 大小约 15-25MB（包含静态链接的 ONNX Runtime）
+- 旧模型和新模型使用不同的字符集，混合使用会导致乱码
 

@@ -35,7 +35,7 @@ fn ctc_decode(predicted: &[usize]) -> Vec<usize> {
     decoded
 }
 
-fn classify(session: &mut Session, img_bytes: &[u8]) -> String {
+fn classify(session: &mut Session, img_bytes: &[u8], charset: &[String]) -> String {
     let img_array = preprocess(img_bytes);
     let input_tensor =
         ort::value::Tensor::from_array(img_array).expect("Failed to create input tensor");
@@ -101,11 +101,10 @@ fn classify(session: &mut Session, img_bytes: &[u8]) -> String {
     };
 
     let indices = ctc_decode(&predicted);
-    let cs = &*charset::CHARSET;
     indices
         .iter()
-        .filter(|&&i| i < cs.len())
-        .map(|&i| cs[i].as_str())
+        .filter(|&&i| i < charset.len())
+        .map(|&i| charset[i].as_str())
         .collect()
 }
 
@@ -122,10 +121,11 @@ fn print_help() {
     eprintln!("Usage: captcha-ocr [OPTIONS]");
     eprintln!();
     eprintln!("Options:");
-    eprintln!("  -m <path>    ONNX model path (default: ./common_old.onnx)");
-    eprintln!("  -c <path>    charset.json path (default: built-in)");
+    eprintln!("  -m <path>    ONNX model path (default: ./common.onnx)");
+    eprintln!("  -c <path>    charset.json path (default: built-in charset3.json)");
     eprintln!("  -i <path>    recognize a single image file");
     eprintln!("  -d <path>    recognize all images in a directory");
+    eprintln!("  -f           show filename in output (filename -> result)");
     eprintln!("  -h           show this help");
     eprintln!();
     eprintln!("If no -i or -d is given, scans current directory for images.");
@@ -136,8 +136,10 @@ fn main() {
     let cwd = std::env::current_dir().expect("Failed to get current directory");
 
     let mut model_path: Option<PathBuf> = None;
+    let mut charset_path: Option<PathBuf> = None;
     let mut input_file: Option<PathBuf> = None;
     let mut input_dir: Option<PathBuf> = None;
+    let mut show_filename = false;
 
     let mut i = 1;
     while i < args.len() {
@@ -146,6 +148,10 @@ fn main() {
                 i += 1;
                 model_path = Some(PathBuf::from(&args[i]));
             }
+            "-c" => {
+                i += 1;
+                charset_path = Some(PathBuf::from(&args[i]));
+            }
             "-i" => {
                 i += 1;
                 input_file = Some(PathBuf::from(&args[i]));
@@ -153,6 +159,9 @@ fn main() {
             "-d" => {
                 i += 1;
                 input_dir = Some(PathBuf::from(&args[i]));
+            }
+            "-f" | "--filename" => {
+                show_filename = true;
             }
             "-h" | "--help" => {
                 print_help();
@@ -167,15 +176,22 @@ fn main() {
         i += 1;
     }
 
-    // Resolve model path: -m > ./common_old.onnx > exe dir
+    // Load charset
+    let charset = if let Some(path) = charset_path {
+        charset::load_charset_from_file(path.to_str().unwrap())
+    } else {
+        charset::CHARSET.clone()
+    };
+
+    // Resolve model path: -m > ./common.onnx > exe dir
     let model_path = model_path.unwrap_or_else(|| {
-        let local = cwd.join("common_old.onnx");
+        let local = cwd.join("common.onnx");
         if local.exists() {
             return local;
         }
         if let Ok(exe) = std::env::current_exe() {
             let exe_dir = exe.parent().unwrap().to_path_buf();
-            let beside_exe = exe_dir.join("common_old.onnx");
+            let beside_exe = exe_dir.join("common.onnx");
             if beside_exe.exists() {
                 return beside_exe;
             }
@@ -225,8 +241,12 @@ fn main() {
     let mut count = 0;
     for path in &files {
         let img_bytes = std::fs::read(path).expect("Failed to read image");
-        let text = classify(&mut session, &img_bytes);
-        println!("{} -> {}", path.file_name().unwrap().to_string_lossy(), text);
+        let text = classify(&mut session, &img_bytes, &charset);
+        if show_filename {
+            println!("{} -> {}", path.file_name().unwrap().to_string_lossy(), text);
+        } else {
+            println!("{}", text);
+        }
         count += 1;
     }
 

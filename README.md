@@ -26,7 +26,8 @@ ONNX Runtime 已**静态链接**到可执行文件中，编译产物为独立 ex
 | `-c <path>` | 字符集文件路径 | 内置 charset3.json |
 | `-i <path>` | 识别单张图片 | - |
 | `-d <path>` | 识别目录下所有图片 | - |
-| `-f` | 显示文件名（格式：filename -> result） | 不显示文件名 |
+| `-b <base64>` |       识别转为base64字符串的图片       |         -          |
+| `-f`          | 显示文件名（格式：filename -> result） |    不显示文件名    |
 | `-h` | 显示帮助信息 | - |
 
 **说明**：不指定 `-i` 或 `-d` 时，默认扫描当前目录下的所有图片。
@@ -69,6 +70,15 @@ ONNX Runtime 已**静态链接**到可执行文件中，编译产物为独立 ex
 ./target/release/captcha-ocr
 ```
 
+```
+PS E:\coding\Rust\captcha> .\captcha-ocr.exe -b "data:image/jpg;base64,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"
+
+输出：
+45WJ
+```
+
+
+
 ## 识别效果对比
 
 ### 新模型 (common.onnx + charset3.json<已内置>)
@@ -91,6 +101,7 @@ ONNX Runtime 已**静态链接**到可执行文件中，编译产物为独立 ex
 - PNG
 - BMP
 - GIF
+- base64
 
 ## 其他
 

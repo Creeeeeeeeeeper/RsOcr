@@ -4,6 +4,7 @@ use image::imageops::FilterType;
 use image::GenericImageView;
 use ndarray::Array4;
 use ort::session::Session;
+use base64::Engine;
 use std::path::{Path, PathBuf};
 
 fn preprocess(img_bytes: &[u8]) -> Array4<f32> {
@@ -125,10 +126,11 @@ fn print_help() {
     eprintln!("  -c <path>    charset.json path (default: built-in charset3.json)");
     eprintln!("  -i <path>    recognize a single image file");
     eprintln!("  -d <path>    recognize all images in a directory");
+    eprintln!("  -b <base64>  recognize image from base64 encoded string");
     eprintln!("  -f           show filename in output (filename -> result)");
     eprintln!("  -h           show this help");
     eprintln!();
-    eprintln!("If no -i or -d is given, scans current directory for images.");
+    eprintln!("If no -i, -d or -b is given, scans current directory for images.");
 }
 
 fn main() {
@@ -139,6 +141,7 @@ fn main() {
     let mut charset_path: Option<PathBuf> = None;
     let mut input_file: Option<PathBuf> = None;
     let mut input_dir: Option<PathBuf> = None;
+    let mut input_base64: Option<String> = None;
     let mut show_filename = false;
 
     let mut i = 1;
@@ -159,6 +162,10 @@ fn main() {
             "-d" => {
                 i += 1;
                 input_dir = Some(PathBuf::from(&args[i]));
+            }
+            "-b" => {
+                i += 1;
+                input_base64 = Some(args[i].clone());
             }
             "-f" | "--filename" => {
                 show_filename = true;
@@ -209,6 +216,32 @@ fn main() {
         .unwrap()
         .commit_from_file(&model_path)
         .expect("Failed to load ONNX model");
+
+    // Base64 mode: decode and classify directly
+    if let Some(b64) = input_base64 {
+        // Strip data URI prefix (e.g. "data:image/png;base64,") if present
+        let b64_data = if let Some(pos) = b64.find(",") {
+            &b64[pos + 1..]
+        } else {
+            &b64
+        };
+        let img_bytes = match base64::engine::general_purpose::STANDARD.decode(b64_data) {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                eprintln!("Failed to decode base64 string: {}", e);
+                std::process::exit(1);
+            }
+        };
+        let text = match image::load_from_memory(&img_bytes) {
+            Ok(_) => classify(&mut session, &img_bytes, &charset),
+            Err(e) => {
+                eprintln!("Failed to load image from decoded bytes: {}", e);
+                std::process::exit(1);
+            }
+        };
+        println!("{}", text);
+        return;
+    }
 
     // Collect image files
     let files: Vec<PathBuf> = if let Some(f) = input_file {
